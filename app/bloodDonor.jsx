@@ -20,7 +20,7 @@ const bloodDonor = () => {
     const fetchDonors = async () => {
       try {
         const response = await axios.get('http://192.168.215.52:5000/api/donors'); // Use axios to fetch data
-        setDonors(response.data); // Update state with fetched donors
+        setDonors(response.data.reverse()); // Update state with fetched donors
       } catch (error) {
         console.error('Error fetching donors:', error);
       }

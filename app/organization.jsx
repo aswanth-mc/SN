@@ -1,5 +1,5 @@
 import { Alert, Image, Pressable, StyleSheet, Text, View, } from 'react-native'
-import React, { useRef, useState } from 'react'
+import React, { useRef,useEffect, useState } from 'react'
 import ScreenWrapper from '../components/ScreenWrapper'
 import { useRouter } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
@@ -9,6 +9,7 @@ import Input from '../components/Input'
 import SignIn from '../components/SignIn'
 import { Picker } from '@react-native-picker/picker'
 import axios from '../config/axiosConfig';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
 
@@ -18,45 +19,80 @@ const organization = () => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [email, setEmail] = useState('');
   const [district, setDistrict] = useState('');
+  const [userId, setUserId] = useState('');
+
+  useEffect(() => {
+    const fetchUserId = async () => {
+      try {
+        const token = await AsyncStorage.getItem('token');
+        if (!token) return;
+
+        const response = await axios.get('http://192.168.215.52:5000/api/home', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const { id } = response.data;
+        setUserId(id);
+      } catch (error) {
+        console.error('Error fetching user ID:', error);
+      }
+    };
+
+    fetchUserId();
+  }, []);
   
 
   const handleOrg = async () => {
-      // Validate required fields
-      if (!orgName || !phoneNumber || !email || !district) {
-        Alert.alert('Error', 'Please fill in all fields');
+    // Validate required fields
+    if (!orgName || !phoneNumber || !email || !district) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+  
+    if (!/^\d{10}$/.test(phoneNumber)) {
+      Alert.alert('Error', 'Phone number must be exactly 10 digits');
+      return;
+    }
+  
+    try {
+      // Retrieve the token before making the request
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        Alert.alert('Error', 'User not authenticated');
         return;
       }
-
-      if (!/^\d{10}$/.test(phoneNumber)) {
-            Alert.alert('Error', 'Phone number must be exactly 10 digits');
-            return;
-          }
-      
-          try {
-            // Send registration request
-            const response = await axios.post('http://192.168.215.52:5000/api/organization', {
-              org_name: orgName,
-              phone_number: phoneNumber,
-              email: email,
-              district: district,
-            });    
-
-            if (response.status === 201) {
-                    Alert.alert('Success', 'Organization registered!');
-                    setOrgName('');
-                    setPhoneNumber('');
-                    setEmail('');
-                    setDistrict('');
-                    router.push('/organizationList'); // Navigate to home page
-                  } else {
-                    Alert.alert('Registration Failed', response.data?.error || 'Something went wrong');
-                  }
-                } catch (error) {
-                  console.error('Vehicle Registration Error:', error.response?.data || error.message);
-                  Alert.alert('Registration Failed', error.response?.data?.error || 'Something went wrong.');
-            
-                }
-              };
+  
+      // Send registration request
+      const response = await axios.post(
+        'http://192.168.215.52:5000/api/organization',
+        {
+          org_name: orgName,
+          phone_number: phoneNumber,
+          email: email,
+          district: district,
+          created_by: userId, // Make sure you're using userId here
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` }, // Include Authorization header
+        }
+      );
+  
+      if (response.status === 201) {
+        Alert.alert('Success', 'Organization registered!');
+        setOrgName('');
+        setPhoneNumber('');
+        setEmail('');
+        setDistrict('');
+        router.push('/organizationList'); // Navigate to the organization list page
+      } else {
+        Alert.alert('Registration Failed', response.data?.error || 'Something went wrong');
+      }
+    } catch (error) {
+      console.error('Organization Registration Error:', error.response?.data || error.message);
+      Alert.alert('Registration Failed', error.response?.data?.error || 'Something went wrong.');
+    }
+  };
+  
 
   return (
     <ScreenWrapper>
