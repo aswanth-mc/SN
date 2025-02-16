@@ -1,4 +1,4 @@
-import { Alert, Image, ScrollView, StyleSheet, Text, View, TextInput, TouchableOpacity, Linking } from 'react-native';
+import { Alert, Image, ScrollView, StyleSheet, Text, View, TextInput, TouchableOpacity, Linking, Pressable } from 'react-native';
 import React, { useState, useEffect } from 'react';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { useRouter } from 'expo-router';
@@ -16,7 +16,7 @@ const OrganizationList = () => {
   useEffect(() => {
     const fetchOrganizations = async () => {
       try {
-        const response = await axios.get('http://192.168.215.52:5000/api/organization');
+        const response = await axios.get('http://192.168.215.52:5000/api/organization?verified=true');
         setOrganizations(response.data.reverse());  // Reverse the array to show the last entered first
         setError(null);
       } catch (error) {
@@ -44,6 +44,13 @@ const OrganizationList = () => {
 
   const handleEmail = (email) => {
     Linking.openURL(`mailto:${email}`);
+  };
+
+  const handleLinkPress = (url) => {
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://' + url;
+    }
+    Linking.openURL(url).catch((err) => console.error("Failed to open URL:", err));
   };
 
   if (loading) {
@@ -99,6 +106,11 @@ const OrganizationList = () => {
                     <Text style={styles.orgDetails}>District: {org.district}</Text>
                     <Text style={styles.orgDetails}>{org.phone_number}</Text>
                     <Text style={styles.orgDetails}>{org.email}</Text>
+                    {org.social_media_link && (
+                      <Pressable onPress={() => handleLinkPress(org.social_media_link)}>
+                        <Text style={styles.linkText}>{org.social_media_link}</Text>
+                      </Pressable>
+                    )}
                   </View>
                 </View>
               ))}
@@ -177,6 +189,11 @@ const styles = StyleSheet.create({
     height: 30,
     resizeMode: 'contain',
     marginRight: 10,
+  },
+  linkText: {
+    color: 'blue',
+    textDecorationLine: 'underline',
+    fontSize: 16,
   },
   loadingContainer: {
     flex: 1,
