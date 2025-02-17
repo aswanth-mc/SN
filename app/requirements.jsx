@@ -56,7 +56,7 @@ const requirements = () => {
                   <Text style={styles.itemText}><Text style={styles.boldText}>Quantity:</Text> {item.quantity}</Text>
                   <Text style={styles.itemText}><Text style={styles.boldText}>Category:</Text> {item.category}</Text>
                   <Text style={styles.itemText}><Text style={styles.boldText}>Camp:</Text> {item.camp_name}</Text>
-                  <Text style={styles.itemText}><Text style={styles.boldText}>Location:</Text> {item.location}</Text>
+                  <Text style={styles.itemText}><Text style={styles.boldText}>City:</Text> {item.city}</Text>
                   <Text style={styles.itemText}><Text style={styles.boldText}>District:</Text> {item.district}</Text>
 
                   <View style={styles.buttonContainer}>
