@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, Image, Pressable, Button, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, Image, Pressable, ScrollView, Alert } from 'react-native';
 import React, { useState } from 'react';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { StatusBar } from 'expo-status-bar';
@@ -9,44 +9,83 @@ import Input from '../components/Input';
 import RNDateTimePicker from '@react-native-community/datetimepicker';
 import SignIn from '../components/SignIn';
 import * as ImagePicker from 'expo-image-picker';
+import { Picker } from '@react-native-picker/picker';
+import axios from 'axios';
 
-const disaster = () => {
-    const [image, setImage] = useState(null);
-
-
-  const pickImage = async () => {
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,
-      allowsEditing: true,
-      aspect: [1,1],
-      quality: 1,
-    });
-
-    console.log(result);
-
-    if (!result.cancelled) {
-      setImage(result.uri);
-    }
-  };
-
+const Disaster = () => {
   const router = useRouter();
+  const [image, setImage] = useState('');
+  const [disasterType, setDisasterType] = useState('');
+  const [affectedArea, setAffectedArea] = useState('');
   const [date, setDate] = useState(new Date());
   const [formattedDate, setFormattedDate] = useState('');
   const [showPicker, setShowPicker] = useState(false);
+  const [district, setDistrict] = useState('');
 
-  const toggleDatePicker = () => {
-    setShowPicker(!showPicker);
+  const pickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [16, 9],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      setImage(result.assets[0].uri);
+      Alert.alert('Success', 'Image added successfully!');
+    }
   };
+
+  const toggleDatePicker = () => setShowPicker(!showPicker);
 
   const onChange = ({ type }, selectedDate) => {
     if (type === 'set') {
       const currentDate = selectedDate || date;
       setDate(currentDate);
-      const formatted = currentDate.toLocaleDateString('en-GB');
-      setFormattedDate(formatted);
-      toggleDatePicker();
-    } else {
-      toggleDatePicker();
+      setFormattedDate(currentDate.toLocaleDateString('en-GB'));
+    }
+    toggleDatePicker();
+  };
+
+  const handleDisaster = async () => {
+    if (!disasterType || !affectedArea || !formattedDate || !district || !image) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    try {
+      // Create FormData object
+      const formData = new FormData();
+      formData.append('disaster_type', disasterType);
+      formData.append('affected_area', affectedArea);
+      formData.append('dob', formattedDate);
+      formData.append('district', district);
+      formData.append('image', {
+        uri: image,
+        name: 'disaster-image.jpg',
+        type: 'image/jpeg',
+      });
+
+      const response = await axios.post('http://192.168.215.52:5000/api/disaster', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (response.status === 201) {
+        Alert.alert('Success', 'Disaster reported!');
+        setDisasterType('');
+        setAffectedArea('');
+        setFormattedDate('');
+        setDistrict('');
+        setImage('');
+        router.push('/disasterList');
+      } else {
+        Alert.alert('Error', response.data?.error || 'Something went wrong');
+      }
+    } catch (error) {
+      console.error('Disaster Reporting Error:', error.response?.data || error.message);
+      Alert.alert('Error', error.response?.data?.error || 'Something went wrong.');
     }
   };
 
@@ -54,73 +93,67 @@ const disaster = () => {
     <ScreenWrapper>
       <StatusBar style="dark" />
       <ScrollView>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <BackButton router={router} />
-          <Image resizeMode="contain" source={require('../assets/images/SafeNetText.png')} style={styles.logo} />
-        </View>
-          <View>
-            <Text style={styles.Heading}>Report Disaster</Text>
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <BackButton router={router} />
+            <Image resizeMode="contain" source={require('../assets/images/SafeNetText.png')} style={styles.logo} />
           </View>
-        <View style={styles.form}>
-          <View style={styles.inp}>
-            <Text style={styles.text}>Disaster Type</Text>
-            <Input placeholder="Disaster Type" />
-          </View>
-          <View style={styles.inp}>
-            <Text style={styles.text}>Affected Area</Text>
-            <Input placeholder="Affected Area" />
-          </View>
-          <View style={styles.inp}>
-            <Text style={styles.text}>Date</Text>
-            {showPicker && (
-              <RNDateTimePicker
-                mode="date"
-                display="spinner"
-                value={date}
-                onChange={onChange}
-              />
-            )}
-            {!showPicker && (
-              <Pressable onPress={toggleDatePicker}>
-                <Input placeholder="Date" value={formattedDate} editable={false} />
-              </Pressable>
-            )}
-          </View>
-          <View style={styles.inp}>
-            <Text style={styles.text}>District</Text>
-            <Input placeholder="District" />
-          </View>
-          <View style={styles.inp}>
-            <Text style={styles.text}>State</Text>
-            <Input placeholder="State" />
-          </View>
-          <Pressable 
-         onPress={pickImage} 
-            style={({ pressed }) => [
-             styles.button,
-            pressed && { opacity: 0.6 }, 
-            ]}
-            >
-          <View style={styles.img}>
-            <Text style={styles.buttonText}>Upload Image</Text>
-            
-            {image && <Image source={{ uri: image }} style={styles.image} />}
+          <Text style={styles.Heading}>Report Disaster</Text>
+          <View style={styles.form}>
+            <View style={styles.inp}>
+              <Text style={styles.text}>Disaster Type</Text>
+              <Input placeholder="Disaster Type" value={disasterType} onChangeText={setDisasterType} />
             </View>
+            <View style={styles.inp}>
+              <Text style={styles.text}>Affected Area</Text>
+              <Input placeholder="Affected Area" value={affectedArea} onChangeText={setAffectedArea} />
+            </View>
+            <View style={styles.inp}>
+              <Text style={styles.text}>Date</Text>
+              {showPicker && <RNDateTimePicker mode="date" display="spinner" value={date} onChange={onChange} />}
+              {!showPicker && (
+                <Pressable onPress={toggleDatePicker}>
+                  <Input placeholder="Date" value={formattedDate} editable={false} />
+                </Pressable>
+              )}
+            </View>
+            <View style={styles.inp}>
+              <Text style={styles.text}>District</Text>
+              <View style={styles.pic}>
+                <Picker selectedValue={district} onValueChange={setDistrict}>
+                  <Picker.Item label="Select District" value="" />
+                  <Picker.Item label="Thiruvananthapuram" value="Thiruvananthapuram" />
+                  <Picker.Item label="Kollam" value="Kollam" />
+                  <Picker.Item label="Pathanamthitta" value="Pathanamthitta" />
+                  <Picker.Item label="Alappuzha" value="Alappuzha" />
+                  <Picker.Item label="Kottayam" value="Kottayam" />
+                  <Picker.Item label="Idukki" value="Idukki" />
+                  <Picker.Item label="Ernakulam" value="Ernakulam" />
+                  <Picker.Item label="Thrissur" value="Thrissur" />
+                  <Picker.Item label="Palakkad" value="Palakkad" />
+                  <Picker.Item label="Malappuram" value="Malappuram" />
+                  <Picker.Item label="Kozhikode" value="Kozhikode" />
+                  <Picker.Item label="Wayanad" value="Wayanad" />
+                  <Picker.Item label="Kannur" value="Kannur" />
+                  <Picker.Item label="Kasaragod" value="Kasaragod" />
+                </Picker>
+              </View>
+            </View>
+            <Pressable onPress={pickImage} style={styles.img}>
+              <Text style={styles.buttonText}>Upload Image</Text>
+              {image && <Image source={{ uri: image }} style={styles.image} />}
             </Pressable>
-
-          <View style={styles.btn}>
-            <SignIn title="Submit" />
+            <View style={styles.btn}>
+              <SignIn title="Submit" onPress={handleDisaster} />
+            </View>
           </View>
-
         </View>
-      </View>
       </ScrollView>
     </ScreenWrapper>
   );
 };
 
-export default disaster;
+export default Disaster;
 
 const styles = StyleSheet.create({
   header: {
@@ -133,30 +166,18 @@ const styles = StyleSheet.create({
     width: wp(25),
     height: hp(5),
   },
-  Heading:{
-    fontSize:hp(3),
-    fontWeight:'bold',
-    paddingTop:50,
-    textAlign:'center',
-    textDecorationLine:'underline'
-    
+  Heading: {
+    fontSize: hp(3),
+    fontWeight: 'bold',
+    paddingTop: 50,
+    textAlign: 'center',
+    textDecorationLine: 'underline',
   },
   form: {
-    color: 'red',
     paddingTop: 20,
   },
-
-  btn: {
-    paddingTop: 35,
-    paddingLeft: 10,
-    paddingRight: 10,
-    paddingBottom:50,
-  
-  },
-  container: {
-    backgroundColor: '#D9F8DB',
-    height:'100%'
-    
+  inp: {
+    marginTop: 25,
   },
   text: {
     fontSize: 15,
@@ -164,26 +185,27 @@ const styles = StyleSheet.create({
     paddingBottom: 5,
     fontWeight: 'bold',
   },
-  inp: {
-    marginTop: 25,
+  img: {
+    backgroundColor: '#37b33f',
+    height: hp(6),
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 10,
+    marginTop: 35,
+    marginLeft: 50,
+    marginRight: 50,
   },
-  img:{
-        backgroundColor:'#37b33f',
-        height:hp(6),
-        justifyContent:'center',
-        alignItems:'center',
-        borderCurve:'continuous',
-        borderRadius:10,
-        marginTop: 35,
-        marginLeft: 50,
-        marginRight: 50,
-        
-
+  buttonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: hp(1.8),
   },
-  buttonText:{
-    color:'white',
-    fontWeight:'bold',
-    fontSize:hp(1.8),
-}
-
+  btn: {
+    paddingTop: 35,
+    paddingBottom: 50,
+  },
+  container: {
+    backgroundColor: '#D9F8DB',
+    height: '100%',
+  },
 });

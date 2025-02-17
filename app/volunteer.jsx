@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, Image, Pressable, Button, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, Image, Pressable, ScrollView, Alert } from 'react-native';
 import React, { useState } from 'react';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { StatusBar } from 'expo-status-bar';
@@ -6,110 +6,110 @@ import BackButton from '../components/BackButton';
 import { useRouter } from 'expo-router';
 import { hp, wp } from '../helper/common';
 import Input from '../components/Input';
-import RNDateTimePicker from '@react-native-community/datetimepicker';
 import SignIn from '../components/SignIn';
 import * as ImagePicker from 'expo-image-picker';
-import { Picker } from '@react-native-picker/picker'
+import axios from 'axios';
 
-const volunteer = () => {
-    const [image, setImage] = useState(null);
-    const [selectedLanguage, setSelectedLanguage] = useState();
+const Volunteer = () => {
+  const router = useRouter();
+  const [image, setImage] = useState(''); // State for certificate image
+  const [role, setRole] = useState(''); // State for volunteer role
 
-
+  // Function to pick an image from the device gallery
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: [1,1],
+      aspect: [16, 9],
       quality: 1,
     });
 
-    console.log(result);
-
-    if (!result.cancelled) {
-      setImage(result.uri);
+    if (!result.canceled) {
+      setImage(result.assets[0].uri); // Set the image URI
+      Alert.alert('Success', 'Certificate image added successfully!');
     }
   };
 
-  const router = useRouter();
-  const [date, setDate] = useState(new Date());
-  const [formattedDate, setFormattedDate] = useState('');
-  const [showPicker, setShowPicker] = useState(false);
+  // Function to handle volunteer registration
+  const handleVolunteer = async () => {
+    if (!role || !image) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
 
-  const toggleDatePicker = () => {
-    setShowPicker(!showPicker);
-  };
+    try {
+      // Create FormData object
+      const formData = new FormData();
+      formData.append('role', role);
+      formData.append('certificate', {
+        uri: image,
+        name: 'certificate-image.jpg',
+        type: 'image/jpeg',
+      });
 
-  const onChange = ({ type }, selectedDate) => {
-    if (type === 'set') {
-      const currentDate = selectedDate || date;
-      setDate(currentDate);
-      const formatted = currentDate.toLocaleDateString('en-GB');
-      setFormattedDate(formatted);
-      toggleDatePicker();
-    } else {
-      toggleDatePicker();
+      // Send POST request to the backend
+      const response = await axios.post('http://192.168.215.52:5000/api/volunteer/register', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      // Handle success response
+      if (response.status === 201) {
+        Alert.alert('Success', 'Volunteer registered!');
+        setRole('');
+        setImage('');
+        router.push('/home'); // Navigate to the volunteer list screen
+      } else {
+        Alert.alert('Error', response.data?.error || 'Something went wrong');
+      }
+    } catch (error) {
+      console.error('Volunteer Registration Error:', error.response?.data || error.message);
+      Alert.alert('Error', error.response?.data?.error || 'Something went wrong.');
     }
   };
 
   return (
     <ScreenWrapper>
       <StatusBar style="dark" />
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <BackButton router={router} />
-          <Image resizeMode="contain" source={require('../assets/images/SafeNetText.png')} style={styles.logo} />
-        </View>
-          
-          <View>
-            <Text style={styles.Heading}>Volunteer Registration</Text>
+      <ScrollView>
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <BackButton router={router} />
+            <Image resizeMode="contain" source={require('../assets/images/SafeNetText.png')} style={styles.logo} />
           </View>
-        <View style={styles.form}>
-        <View style={styles.inp}>
-          <Text style={styles.text}>Prefered Role</Text>
-          <View style={styles.pic}>
-          <Picker
-            selectedValue={selectedLanguage}
-             onValueChange={(itemValue, itemIndex) =>
-             setSelectedLanguage(itemValue)
-             }>
-              <Picker.Item label="Prefered Role" value="null" style={{color:'rgba(0, 0, 0, 0.5)'}} />
-              <Picker.Item label="Rescue Assistance" value="" />
-              <Picker.Item label="Shelter Assistance" value=""/>
-          </Picker>
-          </View>
-          </View>
-          
-          <Pressable 
-         onPress={pickImage} 
-            style={({ pressed }) => [
-             styles.button,
-            pressed && { opacity: 0.6 }, 
-            ]}
-            >
-          <View style={styles.img}>
-            <Text style={styles.buttonText}>Upload Certificate</Text>
-            
-            {image && <Image source={{ uri: image }} style={styles.image} />}
+          <Text style={styles.Heading}>Register Volunteer</Text>
+          <View style={styles.form}>
+            {/* Role Input */}
+            <View style={styles.inp}>
+              <Text style={styles.text}>Role</Text>
+              <Input
+                placeholder="Enter your role"
+                value={role}
+                onChangeText={setRole}
+              />
             </View>
+
+            {/* Certificate Image Upload */}
+            <Pressable onPress={pickImage} style={styles.img}>
+              <Text style={styles.buttonText}>Upload Certificate</Text>
+              {image && <Image source={{ uri: image }} style={styles.image} />}
             </Pressable>
 
-            <View style={styles.inp}>
-            <Text style={styles.text}>Please provide any certificate</Text>
+            {/* Submit Button */}
+            <View style={styles.btn}>
+              <SignIn title="Submit" onPress={handleVolunteer} />
+            </View>
           </View>
-
-          <View style={styles.btn}>
-            <SignIn title="Submit" />
-          </View>
-
         </View>
-      </View>
+      </ScrollView>
     </ScreenWrapper>
   );
 };
 
-export default volunteer;
+export default Volunteer;
 
+// Styles
 const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
@@ -121,29 +121,18 @@ const styles = StyleSheet.create({
     width: wp(25),
     height: hp(5),
   },
-  Heading:{
-    fontSize:hp(3),
-    fontWeight:'bold',
-    paddingTop:50,
-    textAlign:'center',
-    textDecorationLine:'underline'
-    
+  Heading: {
+    fontSize: hp(3),
+    fontWeight: 'bold',
+    paddingTop: 50,
+    textAlign: 'center',
+    textDecorationLine: 'underline',
   },
   form: {
-    color: 'red',
     paddingTop: 20,
   },
-  btn: {
-    paddingTop: 35,
-    paddingLeft: 10,
-    paddingRight: 10,
-    paddingBottom:50,
-  
-  },
-  container: {
-    backgroundColor: '#D9F8DB',
-    height:hp(100)
-    
+  inp: {
+    marginTop: 25,
   },
   text: {
     fontSize: 15,
@@ -151,40 +140,33 @@ const styles = StyleSheet.create({
     paddingBottom: 5,
     fontWeight: 'bold',
   },
-  inp: {
-    marginTop: 25,
+  img: {
+    backgroundColor: '#37b33f',
+    height: hp(6),
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 10,
+    marginTop: 35,
+    marginLeft: 50,
+    marginRight: 50,
   },
-  img:{
-        backgroundColor:'#37b33f',
-        height:hp(6),
-        justifyContent:'center',
-        alignItems:'center',
-        borderCurve:'continuous',
-        borderRadius:10,
-        marginTop: 35,
-        marginLeft: 50,
-        marginRight: 50,
-        
-
+  buttonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: hp(1.8),
   },
-  buttonText:{
-    color:'white',
-    fontWeight:'bold',
-    fontSize:hp(1.8),
-},
-pic:{
-    height:hp(7),
-    borderWidth:0.4,
-    borderColor:'black',
-    borderRadius:10,
-    borderCurve:'continuous',
-    marginHorizontal:15,
-    marginTop:0,
-    gap:12,  
-
-
-        
-
+  btn: {
+    paddingTop: 35,
+    paddingBottom: 50,
   },
-
+  container: {
+    backgroundColor: '#D9F8DB',
+    height: '100%',
+  },
+  image: {
+    width: wp(80),
+    height: hp(20),
+    marginTop: 20,
+    borderRadius: 10,
+  },
 });

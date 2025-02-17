@@ -32,7 +32,7 @@ const disasterTab = () => {
           </View>
           </Pressable>
 
-          <Pressable onPress={()=>router.push('')} style={({ pressed }) => [
+          <Pressable onPress={()=>router.push('disasterList')} style={({ pressed }) => [
               styles.icon,
               pressed && { opacity: 0.5 },
             ]}>
