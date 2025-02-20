@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View, Image, Pressable, ScrollView, Alert } from 'react-native';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { StatusBar } from 'expo-status-bar';
 import BackButton from '../components/BackButton';
@@ -9,13 +9,43 @@ import Input from '../components/Input';
 import SignIn from '../components/SignIn';
 import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const Volunteer = () => {
   const router = useRouter();
-  const [image, setImage] = useState(''); // State for certificate image
-  const [role, setRole] = useState(''); // State for volunteer role
+  const [image, setImage] = useState('');
+  const [role, setRole] = useState('');
+  const [userId, setUserId] = useState('');
 
-  // Function to pick an image from the device gallery
+  useEffect(() => {
+    const fetchUserId = async () => {
+      try {
+        const token = await AsyncStorage.getItem('token');
+        if (!token) {
+          Alert.alert('Error', 'User is not authenticated. Please log in.');
+          router.push('/login');
+          return;
+        }
+
+        const response = await axios.get('http://192.168.215.52:5000/api/home', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (response.status === 200) {
+          const { id } = response.data;
+          setUserId(id);
+        } else {
+          throw new Error('Failed to fetch user ID');
+        }
+      } catch (error) {
+        console.error('Error fetching user ID:', error);
+        Alert.alert('Error', 'Failed to fetch user information.');
+      }
+    };
+
+    fetchUserId();
+  }, []);
+
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -25,12 +55,11 @@ const Volunteer = () => {
     });
 
     if (!result.canceled) {
-      setImage(result.assets[0].uri); // Set the image URI
+      setImage(result.assets[0].uri);
       Alert.alert('Success', 'Certificate image added successfully!');
     }
   };
 
-  // Function to handle volunteer registration
   const handleVolunteer = async () => {
     if (!role || !image) {
       Alert.alert('Error', 'Please fill in all fields');
@@ -38,28 +67,26 @@ const Volunteer = () => {
     }
 
     try {
-      // Create FormData object
       const formData = new FormData();
       formData.append('role', role);
+      formData.append('created_by', userId);
       formData.append('certificate', {
         uri: image,
         name: 'certificate-image.jpg',
         type: 'image/jpeg',
       });
 
-      // Send POST request to the backend
       const response = await axios.post('http://192.168.215.52:5000/api/volunteer/register', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
 
-      // Handle success response
       if (response.status === 201) {
         Alert.alert('Success', 'Volunteer registered!');
         setRole('');
         setImage('');
-        router.push('/home'); // Navigate to the volunteer list screen
+        router.push('/home');
       } else {
         Alert.alert('Error', response.data?.error || 'Something went wrong');
       }
@@ -80,7 +107,6 @@ const Volunteer = () => {
           </View>
           <Text style={styles.Heading}>Register Volunteer</Text>
           <View style={styles.form}>
-            {/* Role Input */}
             <View style={styles.inp}>
               <Text style={styles.text}>Role</Text>
               <Input
@@ -89,14 +115,10 @@ const Volunteer = () => {
                 onChangeText={setRole}
               />
             </View>
-
-            {/* Certificate Image Upload */}
             <Pressable onPress={pickImage} style={styles.img}>
               <Text style={styles.buttonText}>Upload Certificate</Text>
               {image && <Image source={{ uri: image }} style={styles.image} />}
             </Pressable>
-
-            {/* Submit Button */}
             <View style={styles.btn}>
               <SignIn title="Submit" onPress={handleVolunteer} />
             </View>
@@ -109,7 +131,6 @@ const Volunteer = () => {
 
 export default Volunteer;
 
-// Styles
 const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',

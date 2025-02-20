@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View, Image, Pressable, ScrollView, Alert } from 'react-native';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { StatusBar } from 'expo-status-bar';
 import BackButton from '../components/BackButton';
@@ -11,6 +11,7 @@ import SignIn from '../components/SignIn';
 import * as ImagePicker from 'expo-image-picker';
 import { Picker } from '@react-native-picker/picker';
 import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const Disaster = () => {
   const router = useRouter();
@@ -21,6 +22,36 @@ const Disaster = () => {
   const [formattedDate, setFormattedDate] = useState('');
   const [showPicker, setShowPicker] = useState(false);
   const [district, setDistrict] = useState('');
+  const [userId, setUserId] = useState('');
+
+  useEffect(() => {
+    const fetchUserId = async () => {
+      try {
+        const token = await AsyncStorage.getItem('token');
+        if (!token) {
+          Alert.alert('Error', 'User is not authenticated. Please log in.');
+          router.push('/login');
+          return;
+        }
+
+        const response = await axios.get('http://192.168.215.52:5000/api/home', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (response.status === 200) {
+          const { id } = response.data;
+          setUserId(id);
+        } else {
+          throw new Error('Failed to fetch user ID');
+        }
+      } catch (error) {
+        console.error('Error fetching user ID:', error);
+        Alert.alert('Error', 'Failed to fetch user information.');
+      }
+    };
+
+    fetchUserId();
+  }, []);
 
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
@@ -65,6 +96,7 @@ const Disaster = () => {
         name: 'disaster-image.jpg',
         type: 'image/jpeg',
       });
+      formData.append('created_by', userId);
 
       const response = await axios.post('http://192.168.215.52:5000/api/disaster', formData, {
         headers: {
